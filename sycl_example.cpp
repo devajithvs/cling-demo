@@ -1,27 +1,22 @@
-#include <iostream>
 #include <sycl/sycl.hpp>
-#include <vector>
+#include <iostream>
 
-void run_sycl_demo() {
-  sycl::queue q;
-  std::cout << "Selected device: "
-            << q.get_device().get_info<sycl::info::device::name>() << "\n";
+void sycl_example(sycl::queue &q, size_t N) {
+    int* data = sycl::malloc_shared<int>(N, q);
+    int* out  = sycl::malloc_shared<int>(N, q);
 
-  const size_t N = 1024;
-  std::vector<int> data(N, 1);
-  std::vector<int> out(N);
+    // Initialize input
+    for (size_t i = 0; i < N; i++)
+        data[i] = 1;
 
-  {
-    sycl::buffer<int> b_in(data.data(), N);
-    sycl::buffer<int> b_out(out.data(), N);
+    // Kernel: out[i] = data[i] * 2
+    q.parallel_for(N, [=](sycl::id<1> i) {
+        out[i] = data[i] * 2;
+    }).wait();
 
-    q.submit([&](sycl::handler &h) {
-       auto in = b_in.get_access<sycl::access::mode::read>(h);
-       auto out = b_out.get_access<sycl::access::mode::write>(h);
+    std::cout << "Result: out[0] = " << out[0] << "\n";
 
-       h.parallel_for(N, [=](sycl::id<1> i) { out[i] = in[i] * 2; });
-     }).wait();
-  }
-
-  std::cout << "out[0] = " << out[0] << "\n";
+    sycl::free(data, q);
+    sycl::free(out, q);
 }
+
